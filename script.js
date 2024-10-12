@@ -2,16 +2,18 @@
 const canvas = document.getElementById('canvas');
 const gl = canvas.getContext('webgl');
 
-// Resize the canvas
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+// Resize the canvas to always fit the center
+canvas.width = 600;
+canvas.height = 600;
 
 // Clear the canvas
 gl.clearColor(1.0, 1.0, 1.0, 1.0);
 gl.clear(gl.COLOR_BUFFER_BIT);
 
 // Store points for the line
-let points = [0, 0, 0.5, 0.5]; // initial two points in normalized device coordinates
+let points = [0, 0]; // Start at the center (normalized device coordinates)
+let selectedMethod = null;
+let newPoint = null;
 
 // Function to create a WebGL buffer
 function createBuffer(gl, data) {
@@ -69,11 +71,70 @@ const program = createProgram(gl, vertexShader, fragmentShader);
 const lineWidthInput = document.getElementById('lineWidth');
 gl.useProgram(program);
 
-// Handle adding random points
-document.getElementById('addPointButton').addEventListener('click', () => {
-    const newPoint = [Math.random() * 2 - 1, Math.random() * 2 - 1]; // Random point in normalized device coords
-    points.push(...newPoint);
-    draw();
+// Get message element for success or error display
+const messageElement = document.getElementById('message');
+
+// Function to display message
+function showMessage(success, text) {
+    messageElement.textContent = text;
+    messageElement.className = `message ${success ? 'success' : 'error'}`;
+    messageElement.style.visibility = 'visible';
+}
+
+// Handle the method selection buttons
+document.getElementById('randomPointButton').addEventListener('click', () => {
+    selectedMethod = 'random';
+    document.getElementById('coordinateInputs').classList.add('hidden');
+    document.getElementById('generateButton').classList.remove('hidden');
+    showMessage(false, "Random point mode selected.");
+});
+
+document.getElementById('coordinateInputButton').addEventListener('click', () => {
+    selectedMethod = 'coordinates';
+    document.getElementById('coordinateInputs').classList.remove('hidden');
+    document.getElementById('generateButton').classList.remove('hidden');
+    showMessage(false, "Enter x and y coordinates.");
+});
+
+document.getElementById('clickCanvasButton').addEventListener('click', () => {
+    selectedMethod = 'click';
+    document.getElementById('coordinateInputs').classList.add('hidden');
+    document.getElementById('generateButton').classList.add('hidden');
+    showMessage(false, "Click on canvas to add points.");
+});
+
+// Generate new segment based on the selected method
+document.getElementById('generateButton').addEventListener('click', () => {
+    if (selectedMethod === 'random') {
+        newPoint = [Math.random() * 2 - 1, Math.random() * 2 - 1];
+        showMessage(true, "Random point added successfully.");
+    } else if (selectedMethod === 'coordinates') {
+        const x = parseFloat(document.getElementById('xCoord').value);
+        const y = parseFloat(document.getElementById('yCoord').value);
+        if (!isNaN(x) && !isNaN(y) && x >= -1 && x <= 1 && y >= -1 && y <= 1) {
+            newPoint = [x, y];
+            showMessage(true, "Coordinates added successfully.");
+        } else {
+            showMessage(false, "Invalid coordinates. Please enter values between -1 and 1.");
+            return;
+        }
+    }
+    if (newPoint) {
+        points.push(...newPoint);
+        draw();
+    }
+});
+
+// Clicking on the canvas to add a point
+canvas.addEventListener('click', (event) => {
+    if (selectedMethod === 'click') {
+        const rect = canvas.getBoundingClientRect();
+        const x = ((event.clientX - rect.left) / canvas.width) * 2 - 1;
+        const y = ((rect.top - event.clientY) / canvas.height) * 2 + 1;
+        points.push(x, y);
+        draw();
+        showMessage(true, "Point added successfully.");
+    }
 });
 
 function draw() {
